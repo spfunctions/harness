@@ -22,6 +22,12 @@ function getPackageRoot(): string {
   return candidate;
 }
 
+// Files to copy, preserving directory structure relative to src/
+// e.g. src/server/worker.ts → configDir/server/server/worker.ts
+// But wrangler main = "server/worker.ts" so we need:
+// src/server/worker.ts → configDir/server/worker.ts
+// src/shared/types.ts  → configDir/shared/types.ts  (since worker imports ../shared/)
+// src/protocol/codec.ts → configDir/protocol/codec.ts
 const SERVER_FILES = [
   "src/server/worker.ts",
   "src/server/durable-object.ts",
@@ -35,14 +41,25 @@ const SERVER_FILES = [
 
 export function copyServerFiles(configDir: string): void {
   const pkgRoot = getPackageRoot();
-  const serverDir = path.join(configDir, "server");
-  fs.mkdirSync(serverDir, { recursive: true });
 
   for (const file of SERVER_FILES) {
     const src = path.join(pkgRoot, file);
-    const dest = path.join(serverDir, path.basename(file));
+    const relative = file.replace(/^src\//, "");
+    const dest = path.join(configDir, relative);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
     if (fs.existsSync(src)) {
       fs.copyFileSync(src, dest);
+    }
+  }
+
+  // Symlink node_modules so wrangler can resolve dependencies
+  const nmLink = path.join(configDir, "node_modules");
+  const nmTarget = path.join(pkgRoot, "node_modules");
+  if (!fs.existsSync(nmLink) && fs.existsSync(nmTarget)) {
+    try {
+      fs.symlinkSync(nmTarget, nmLink);
+    } catch {
+      // May fail on some systems; wrangler might still work
     }
   }
 }

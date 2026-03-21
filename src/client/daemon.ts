@@ -1,12 +1,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Message } from "../shared/types.js";
+import { execa } from "execa";
+import type { Message, Issue } from "../shared/types.js";
 import { encode } from "../protocol/codec.js";
-import { createStateSync } from "../protocol/messages.js";
+import { createStateSync, createDataMessage } from "../protocol/messages.js";
 import { SSEClient } from "./sse-client.js";
 import { LocalServer } from "./local-server.js";
 import { ProcessManager, type ManagedProcess } from "./process-manager.js";
 import { GitOps } from "./git.js";
+import { Scheduler } from "../daemon/scheduler.js";
+import { CloudflareStorage } from "../storage/cloudflare-client.js";
 
 export type DaemonRole = "client" | "server";
 
@@ -29,6 +32,11 @@ export class Daemon {
   private syncInterval: ReturnType<typeof setInterval> | null = null;
   private inboxDir: string;
   private logStream: fs.WriteStream | null = null;
+  private scheduler: Scheduler | null = null;
+  private storage: CloudflareStorage;
+  private startTime = Date.now();
+  private issueQueue: Issue[] = [];
+  private fixing = false;
 
   constructor(config: DaemonConfig) {
     this.config = config;
@@ -44,6 +52,7 @@ export class Daemon {
 
     this.gitOps = new GitOps(repoDir);
     this.processManager = new ProcessManager(repoDir);
+    this.storage = new CloudflareStorage(config.serverUrl, config.token);
 
     this.localServer = new LocalServer({
       port: config.localPort ?? 0,
@@ -106,11 +115,30 @@ export class Daemon {
       this.sendStateSync();
     }, 60000);
 
+    // Server role: start scheduler
+    if (this.config.role === "server") {
+      this.scheduler = new Scheduler();
+      this.scheduler.register({
+        name: "log-upload",
+        interval: 5 * 60 * 1000,
+        handler: () => this.uploadLogsAndDashboard(),
+        enabled: true,
+      });
+      this.scheduler.start();
+      this.log("info", "scheduler started", {
+        tasks: this.scheduler.list().map((t) => t.name),
+      });
+    }
+
     this.log("info", "daemon started");
   }
 
   async stop(): Promise<void> {
     this.log("info", "daemon stopping");
+    if (this.scheduler) {
+      this.scheduler.stop();
+      this.scheduler = null;
+    }
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
@@ -193,6 +221,11 @@ export class Daemon {
       case "data":
         if ("channel" in msg) {
           this.log("info", "data received", { channel: msg.channel });
+          if (msg.channel === "issues/new" && msg.payload) {
+            this.handleIssue(msg.payload as Issue).catch((e) =>
+              this.log("error", "handleIssue failed", { error: (e as Error).message }),
+            );
+          }
         }
         break;
       case "state-sync":
@@ -238,6 +271,241 @@ export class Daemon {
       this.log("info", "state-sync sent", { version: this.currentVersion });
     } catch {
       this.log("error", "state-sync failed");
+    }
+  }
+
+  private async handleIssue(issue: Issue): Promise<void> {
+    this.log("info", "issue received from server", {
+      id: issue.id,
+      type: issue.type,
+      severity: issue.severity,
+      title: issue.title,
+    });
+
+    // Save to issues dir
+    const issuesDir = path.join(this.config.workDir, "issues");
+    fs.mkdirSync(issuesDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(issuesDir, `${issue.id}.json`),
+      JSON.stringify(issue, null, 2),
+    );
+
+    // Also save to inbox
+    this.saveToInbox(issue as unknown as Message);
+
+    if (issue.severity === "critical" || issue.severity === "high") {
+      await this.attemptFixSafe(issue);
+    } else if (issue.severity === "medium") {
+      this.issueQueue.push(issue);
+      if (this.issueQueue.length >= 3) {
+        const batch = this.issueQueue.splice(0);
+        for (const qi of batch) {
+          await this.attemptFixSafe(qi);
+        }
+      }
+    }
+    // low → record only
+  }
+
+  private async attemptFixSafe(issue: Issue): Promise<void> {
+    if (this.fixing) {
+      this.log("warn", "already fixing another issue, queuing", { id: issue.id });
+      this.issueQueue.push(issue);
+      return;
+    }
+    this.fixing = true;
+    try {
+      await this.attemptFix(issue);
+    } finally {
+      this.fixing = false;
+    }
+  }
+
+  private async attemptFix(issue: Issue, attempt: number = 1): Promise<void> {
+    const MAX_ATTEMPTS = 3;
+    const repoDir = this.getRepoDir();
+
+    if (!repoDir) {
+      this.log("error", "repo dir not found, cannot auto-fix");
+      return;
+    }
+
+    this.log("info", "attempting fix", { issue_id: issue.id, attempt });
+
+    const fixId = `fix-${Date.now()}`;
+    const fixDir = path.join(this.config.workDir, "fixes");
+    fs.mkdirSync(fixDir, { recursive: true });
+
+    const prompt = this.buildFixPrompt(issue, attempt, repoDir);
+
+    try {
+      await execa("pi", ["-p", prompt], {
+        cwd: repoDir,
+        timeout: 300000,
+      });
+
+      // Run tests
+      const testResult = await execa("npm", ["test"], {
+        cwd: repoDir,
+        timeout: 120000,
+        reject: false,
+      });
+
+      const passedMatch = testResult.stdout.match(/(\d+) passed/);
+      const failedMatch = testResult.stdout.match(/(\d+) failed/);
+      const passed = passedMatch ? parseInt(passedMatch[1], 10) : 0;
+      const failed = failedMatch ? parseInt(failedMatch[1], 10) : 0;
+
+      if (failed === 0 && testResult.exitCode === 0) {
+        // Commit
+        const git = new GitOps(repoDir);
+        const commitHash = await git.commit(
+          `fix(auto): ${issue.title}\n\nIssue: ${issue.id}\nDiscovered by: ${issue.discovered_by}`,
+        );
+
+        this.log("info", "fix passed", { issue_id: issue.id, commit: commitHash });
+
+        const fix = {
+          id: fixId,
+          issue_ref: issue.id,
+          status: "passed",
+          diff_summary: `Auto-fixed: ${issue.title}`,
+          files_changed: [],
+          test_result: { passed, failed, new_tests_added: 0 },
+          commit_hash: commitHash,
+          attempts: attempt,
+        };
+
+        fs.writeFileSync(
+          path.join(fixDir, `${fixId}.json`),
+          JSON.stringify(fix, null, 2),
+        );
+
+        await this.sendToServer(
+          createDataMessage(this.config.role ?? "client", "fixes/completed", fix),
+        );
+      } else {
+        this.log("warn", "fix failed tests", { issue_id: issue.id, failed });
+        await execa("git", ["checkout", "."], { cwd: repoDir }).catch(() => {});
+
+        if (attempt < MAX_ATTEMPTS) {
+          return this.attemptFix(issue, attempt + 1);
+        }
+
+        const fix = {
+          id: fixId,
+          issue_ref: issue.id,
+          status: "abandoned",
+          diff_summary: `Failed after ${MAX_ATTEMPTS} attempts`,
+          files_changed: [],
+          test_result: { passed, failed, new_tests_added: 0 },
+          attempts: attempt,
+        };
+        fs.writeFileSync(
+          path.join(fixDir, `${fixId}.json`),
+          JSON.stringify(fix, null, 2),
+        );
+      }
+    } catch (err) {
+      this.log("error", "fix error", {
+        issue_id: issue.id,
+        error: (err as Error).message,
+      });
+      await execa("git", ["checkout", "."], { cwd: repoDir }).catch(() => {});
+
+      if (attempt < MAX_ATTEMPTS) {
+        return this.attemptFix(issue, attempt + 1);
+      }
+    }
+  }
+
+  private buildFixPrompt(issue: Issue, attempt: number, repoDir: string): string {
+    let prompt = `You are a maintainer of the sparkco-harness project at ${repoDir}.
+
+An automated testing system found this issue:
+
+Type: ${issue.type}
+Severity: ${issue.severity}
+Title: ${issue.title}
+
+Description:
+${issue.description}
+
+Reproduction:
+${issue.reproduction}
+`;
+    if (issue.affected_files?.length) {
+      prompt += `\nLikely affected files:\n${issue.affected_files.map((f) => `- ${f}`).join("\n")}\n`;
+    }
+    prompt += `
+Your task:
+1. Read relevant source code and understand the root cause
+2. Write the minimal fix
+3. Add tests if the scenario isn't already covered
+4. Don't change existing test expectations
+5. Don't add new dependencies
+`;
+    if (attempt > 1) {
+      prompt += `\nNote: This is attempt ${attempt}. Previous attempts failed tests. Re-analyze from scratch.\n`;
+    }
+    return prompt;
+  }
+
+  private getRepoDir(): string | null {
+    const localRepo = path.join(this.config.workDir, "repo");
+    if (
+      fs.existsSync(localRepo) &&
+      fs.existsSync(path.join(localRepo, "package.json"))
+    ) {
+      return localRepo;
+    }
+    // Check if cwd is the sparkco-agent project
+    if (fs.existsSync(path.join(process.cwd(), "src", "protocol", "codec.ts"))) {
+      return process.cwd();
+    }
+    return null;
+  }
+
+  private async uploadLogsAndDashboard(): Promise<void> {
+    // Upload log tail
+    const logPath = path.join(this.config.workDir, "logs", "daemon.log");
+    try {
+      if (fs.existsSync(logPath)) {
+        const result = await execa("tail", ["-200", logPath]);
+        await this.storage.kvSet("server-logs", result.stdout, 3600);
+      }
+    } catch {
+      // Ignore log upload failures
+    }
+
+    // Upload dashboard/task state
+    try {
+      const tasks = this.scheduler
+        ? this.scheduler.list().map((t) => ({
+            name: t.name,
+            enabled: t.enabled,
+            interval: t.interval,
+            lastRun: t.lastRun,
+            nextRun: t.nextRun,
+          }))
+        : [];
+      await this.storage.kvSet(
+        "server-tasks",
+        tasks,
+        600,
+      );
+      await this.storage.kvSet(
+        "server-state",
+        {
+          connected: this.connected,
+          uptime: Date.now() - this.startTime,
+          role: this.config.role ?? "client",
+          pid: process.pid,
+        },
+        600,
+      );
+    } catch {
+      // Ignore
     }
   }
 }

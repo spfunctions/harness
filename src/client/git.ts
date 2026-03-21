@@ -42,7 +42,11 @@ export class GitOps {
   }
 
   async getCurrentCommit(): Promise<string> {
-    return this.run(["rev-parse", "HEAD"]);
+    try {
+      return await this.run(["rev-parse", "HEAD"]);
+    } catch {
+      return "no-commits";
+    }
   }
 
   async checkout(commit: string): Promise<void> {

@@ -120,6 +120,11 @@ export function decode(raw: string): Message {
     throw new HarnessError("MISSING_FIELD", 'Missing required field: "from"');
   }
 
+  // data messages require payload field to be present
+  if (obj.type === "data" && !("payload" in obj)) {
+    throw new HarnessError("MISSING_FIELD", 'Missing required field: "payload"');
+  }
+
   const result = messageSchema.safeParse(parsed);
   if (!result.success) {
     const firstIssue = result.error.issues[0];

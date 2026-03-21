@@ -66,16 +66,15 @@ describe("deployWorker (wrangler.toml generation)", () => {
 });
 
 describe("copyServerFiles", () => {
-  it("copies all necessary server files to configDir/server/", () => {
+  it("copies server files preserving directory structure", () => {
     copyServerFiles(tmpDir);
-    const serverDir = path.join(tmpDir, "server");
-    expect(fs.existsSync(serverDir)).toBe(true);
-    expect(fs.existsSync(path.join(serverDir, "worker.ts"))).toBe(true);
-    expect(fs.existsSync(path.join(serverDir, "durable-object.ts"))).toBe(true);
-    expect(fs.existsSync(path.join(serverDir, "sse-server.ts"))).toBe(true);
-    expect(fs.existsSync(path.join(serverDir, "types.ts"))).toBe(true);
-    expect(fs.existsSync(path.join(serverDir, "errors.ts"))).toBe(true);
-    expect(fs.existsSync(path.join(serverDir, "codec.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "server", "worker.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "server", "durable-object.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "server", "sse-server.ts"))).toBe(true);
+    // Shared and protocol files in their own dirs (for relative imports)
+    expect(fs.existsSync(path.join(tmpDir, "shared", "types.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "shared", "errors.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "protocol", "codec.ts"))).toBe(true);
   });
 
   it("wrangler.toml main path resolves relative to configDir", () => {

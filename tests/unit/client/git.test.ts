@@ -51,6 +51,12 @@ describe("GitOps", () => {
     expect(hash).toMatch(/^[a-f0-9]{40}$/);
   });
 
+  it("getCurrentCommit 在空 repo 返回 'no-commits'", async () => {
+    await git.init();
+    const result = await git.getCurrentCommit();
+    expect(result).toBe("no-commits");
+  });
+
   it("checkout 切换到指定 commit", async () => {
     await git.init();
     fs.writeFileSync(path.join(tmpDir, "file.txt"), "v1");
@@ -88,7 +94,7 @@ describe("GitOps", () => {
 
   it("git 命令失败时抛出 HarnessError GIT_FAILED", async () => {
     try {
-      await git.getCurrentCommit(); // no repo yet
+      await git.log(); // no repo yet — log will fail
       expect.unreachable();
     } catch (e) {
       expect(e).toBeInstanceOf(HarnessError);

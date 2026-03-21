@@ -63,7 +63,7 @@ describe("generateFuzzCases", () => {
         // So only check the ones that should definitely fail at decode level
         if (
           (c.strategy === "malformed-json") ||
-          (c.strategy === "missing-field" && !c.id.includes("payload")) ||
+          (c.strategy === "missing-field") ||
           c.id.includes("empty-id") ||
           c.id.includes("empty-channel") ||
           c.id.includes("long-channel") ||

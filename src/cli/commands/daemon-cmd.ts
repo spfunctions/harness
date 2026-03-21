@@ -33,10 +33,10 @@ export async function daemonCommand(
       await startDaemon(options?.detached ?? false, role, options?.workDir, options?.port);
       break;
     case "stop":
-      await stopDaemon();
+      await stopDaemon(role, options?.workDir);
       break;
     case "restart":
-      await stopDaemon();
+      await stopDaemon(role, options?.workDir);
       await startDaemon(options?.detached ?? false, role, options?.workDir, options?.port);
       break;
     default:
@@ -47,9 +47,10 @@ export async function daemonCommand(
 }
 
 async function startDaemon(detached: boolean, role: "client" | "server" = "client", customWorkDir?: string, customPort?: number): Promise<void> {
-  const pid = getDaemonPid();
+  const workDir = customWorkDir ?? (role === "server" ? path.join(process.env.HOME || "~", "sparkco-server") : getSparkcoDir());
+  const pid = getDaemonPid(role, workDir);
   if (pid) {
-    output.error(`Daemon already running (pid ${pid}).`);
+    output.error(`Daemon (${role}) already running (pid ${pid}).`);
     return;
   }
 
@@ -89,7 +90,6 @@ async function startDaemon(detached: boolean, role: "client" | "server" = "clien
   }
 
   // Foreground mode
-  const workDir = customWorkDir ?? (role === "server" ? path.join(process.env.HOME || "~", "sparkco-server") : getSparkcoDir());
   const daemon = new Daemon({
     role,
     serverUrl: config.server.workerUrl,
@@ -98,7 +98,7 @@ async function startDaemon(detached: boolean, role: "client" | "server" = "clien
     localPort: customPort ?? config.client.port,
   });
 
-  writeDaemonPid(process.pid);
+  writeDaemonPid(process.pid, role, workDir);
   output.success(`Daemon started (role=${role}, pid ${process.pid}). Press Ctrl+C to stop.`);
 
   await daemon.start();
@@ -106,7 +106,7 @@ async function startDaemon(detached: boolean, role: "client" | "server" = "clien
   const shutdown = async () => {
     output.success("Shutting down daemon...");
     await daemon.stop();
-    removeDaemonPid();
+    removeDaemonPid(role, workDir);
     process.exit(0);
   };
 
@@ -117,10 +117,11 @@ async function startDaemon(detached: boolean, role: "client" | "server" = "clien
   await new Promise(() => {});
 }
 
-async function stopDaemon(): Promise<void> {
-  const pid = getDaemonPid();
+async function stopDaemon(role: string = "client", customWorkDir?: string): Promise<void> {
+  const workDir = customWorkDir ?? (role === "server" ? path.join(process.env.HOME || "~", "sparkco-server") : getSparkcoDir());
+  const pid = getDaemonPid(role, workDir);
   if (!pid) {
-    output.error("Daemon not running.");
+    output.error(`Daemon (${role}) not running.`);
     return;
   }
 
@@ -147,11 +148,11 @@ async function stopDaemon(): Promise<void> {
       // Already dead
     }
 
-    removeDaemonPid();
-    output.success("Daemon stopped.");
+    removeDaemonPid(role, workDir);
+    output.success(`Daemon (${role}) stopped.`);
   } catch {
-    removeDaemonPid();
-    output.success("Daemon stopped (was not running).");
+    removeDaemonPid(role, workDir);
+    output.success(`Daemon (${role}) stopped (was not running).`);
   }
 }
 

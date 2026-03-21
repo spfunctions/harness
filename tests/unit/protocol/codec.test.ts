@@ -117,6 +117,39 @@ describe("decode", () => {
   });
 });
 
+describe("data 消息 payload 必填", () => {
+  it("有 payload（null）通过", () => {
+    const msg = makeDataMessage({ payload: null });
+    expect(() => decode(encode(msg))).not.toThrow();
+  });
+
+  it("有 payload（{}）通过", () => {
+    const msg = makeDataMessage({ payload: {} });
+    expect(() => decode(encode(msg))).not.toThrow();
+  });
+
+  it("有 payload（string）通过", () => {
+    const msg = makeDataMessage({ payload: "hello" });
+    expect(() => decode(encode(msg))).not.toThrow();
+  });
+
+  it("缺少 payload 字段 → 拒绝", () => {
+    const raw = JSON.stringify({
+      type: "data",
+      id: "test",
+      from: "client",
+      channel: "test",
+      timestamp: 0,
+    });
+    expect(() => decode(raw)).toThrow(HarnessError);
+    try {
+      decode(raw);
+    } catch (e) {
+      expect((e as HarnessError).code).toBe("MISSING_FIELD");
+    }
+  });
+});
+
 describe("channel name 校验", () => {
   it("有效 channel name 通过", () => {
     const valid = [

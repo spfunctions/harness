@@ -54,8 +54,13 @@ export function configExists(): boolean {
   return fs.existsSync(path.join(getSparkcoDir(), "config.json"));
 }
 
-export function getDaemonPid(): number | null {
-  const pp = path.join(getSparkcoDir(), "daemon.pid");
+export function getPidPath(role: string = "client", workDir?: string): string {
+  const dir = workDir ?? getSparkcoDir();
+  return path.join(dir, `daemon-${role}.pid`);
+}
+
+export function getDaemonPid(role: string = "client", workDir?: string): number | null {
+  const pp = getPidPath(role, workDir);
   if (!fs.existsSync(pp)) return null;
   try {
     const pid = parseInt(fs.readFileSync(pp, "utf-8").trim(), 10);
@@ -71,15 +76,15 @@ export function getDaemonPid(): number | null {
   }
 }
 
-export function writeDaemonPid(pid: number): void {
-  fs.writeFileSync(
-    path.join(getSparkcoDir(), "daemon.pid"),
-    String(pid),
-  );
+export function writeDaemonPid(pid: number, role: string = "client", workDir?: string): void {
+  const pp = getPidPath(role, workDir);
+  const dir = path.dirname(pp);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(pp, String(pid));
 }
 
-export function removeDaemonPid(): void {
-  const pp = path.join(getSparkcoDir(), "daemon.pid");
+export function removeDaemonPid(role: string = "client", workDir?: string): void {
+  const pp = getPidPath(role, workDir);
   if (fs.existsSync(pp)) {
     fs.unlinkSync(pp);
   }
