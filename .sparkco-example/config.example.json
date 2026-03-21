@@ -1,0 +1,26 @@
+{
+  "version": "1",
+  "server": {
+    "workerName": "sparkco-harness",
+    "workerUrl": "https://sparkco-harness.account.workers.dev",
+    "accountId": "your-account-id",
+    "kvNamespaceId": "your-kv-namespace-id"
+  },
+  "client": {
+    "port": 3847,
+    "routes": []
+  },
+  "session": {
+    "token": "your-session-token",
+    "createdAt": 0
+  },
+  "pi": {
+    "skillInstalled": false,
+    "target": "both"
+  },
+  "daemon": {
+    "autoStart": true,
+    "stateSyncInterval": 60000,
+    "logRetentionDays": 7
+  }
+}

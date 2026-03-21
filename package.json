@@ -1,10 +1,10 @@
 {
   "name": "@sparkco/sparkco-agent",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "sparkco-harness": "./dist/cli/init.js"
+    "sparkco": "./bin/sparkco.ts"
   },
   "scripts": {
     "build": "tsc",
@@ -15,14 +15,18 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "description": "Dual Pi-Agent Runtime Harness",
   "dependencies": {
     "@hono/node-server": "^1.19.11",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "enquirer": "^2.4.0",
     "eventsource": "^3.0.0",
     "execa": "^9.0.0",
     "hono": "^4.0.0",
     "nanoid": "^5.0.0",
+    "ora": "^8.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
