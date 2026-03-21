@@ -2,9 +2,12 @@ import type { Message, SSEEvent, MessageType } from "../shared/types.js";
 import { decode, encode, toSSEEvent } from "../protocol/codec.js";
 import { createSSEStream, formatSSEEvent } from "./sse-server.js";
 
+type DaemonRole = "client" | "server" | "unknown";
+
 type SSEConnection = {
   write: (event: SSEEvent) => void;
   close: () => void;
+  role: DaemonRole;
 };
 
 type CapabilityEntry = {
@@ -67,12 +70,14 @@ export class HarnessDO implements DurableObject {
   }
 
   private handleSSE(request: Request): Response {
+    const url = new URL(request.url);
     const lastEventId = request.headers.get("Last-Event-ID") ||
-      new URL(request.url).searchParams.get("lastEventId");
+      url.searchParams.get("lastEventId");
+    const role = (url.searchParams.get("role") ?? "unknown") as DaemonRole;
 
     const { readable, write, close } = createSSEStream();
 
-    const conn: SSEConnection = { write, close };
+    const conn: SSEConnection = { write, close, role };
     this.connections.push(conn);
 
     // Replay events since lastEventId

@@ -14,6 +14,7 @@ import { daemonCommand } from "./commands/daemon-cmd.js";
 import { destroyCommand } from "./commands/destroy.js";
 import { modelCommand } from "./commands/model.js";
 import { improveCommand } from "./commands/improve.js";
+import { serverCommand } from "./commands/server.js";
 
 const program = new Command()
   .name("sparkco")
@@ -45,10 +46,18 @@ program
 
 program
   .command("daemon <action>")
-  .description("Manage client daemon (start|stop|restart)")
+  .description("Manage daemon (start|stop|restart)")
   .option("-d, --detached", "Run in background")
+  .option("--role <role>", "Daemon role: client or server", "client")
+  .option("--work-dir <dir>", "Custom working directory")
+  .option("--port <port>", "Custom local port")
   .action(async (action, opts) => {
-    await daemonCommand(action, opts);
+    await daemonCommand(action, {
+      detached: opts.detached,
+      role: opts.role,
+      workDir: opts.workDir,
+      port: opts.port ? parseInt(opts.port, 10) : undefined,
+    });
   });
 
 program
@@ -120,6 +129,13 @@ program
   .description("Manage LLM models (show|set|list|key|test)")
   .action(async (action, target, value) => {
     await modelCommand(action, target, value);
+  });
+
+program
+  .command("server [action] [arg1]")
+  .description("Server runtime management (status|logs|tasks)")
+  .action(async (action, arg1) => {
+    await serverCommand(action, arg1);
   });
 
 program

@@ -1,0 +1,20 @@
+app = "sparkco-server"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "deploy/fly/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  SPARKCO_ROLE = "server"
+
+[http_service]
+  internal_port = 3848
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

@@ -25,18 +25,19 @@ import { Daemon } from "../../client/daemon.js";
 
 export async function daemonCommand(
   action: string,
-  options?: { detached?: boolean },
+  options?: { detached?: boolean; role?: string; workDir?: string; port?: number },
 ): Promise<void> {
+  const role = (options?.role ?? "client") as "client" | "server";
   switch (action) {
     case "start":
-      await startDaemon(options?.detached ?? false);
+      await startDaemon(options?.detached ?? false, role, options?.workDir, options?.port);
       break;
     case "stop":
       await stopDaemon();
       break;
     case "restart":
       await stopDaemon();
-      await startDaemon(options?.detached ?? false);
+      await startDaemon(options?.detached ?? false, role, options?.workDir, options?.port);
       break;
     default:
       output.error(
@@ -45,7 +46,7 @@ export async function daemonCommand(
   }
 }
 
-async function startDaemon(detached: boolean): Promise<void> {
+async function startDaemon(detached: boolean, role: "client" | "server" = "client", customWorkDir?: string, customPort?: number): Promise<void> {
   const pid = getDaemonPid();
   if (pid) {
     output.error(`Daemon already running (pid ${pid}).`);
@@ -88,15 +89,17 @@ async function startDaemon(detached: boolean): Promise<void> {
   }
 
   // Foreground mode
+  const workDir = customWorkDir ?? (role === "server" ? path.join(process.env.HOME || "~", "sparkco-server") : getSparkcoDir());
   const daemon = new Daemon({
+    role,
     serverUrl: config.server.workerUrl,
     token: config.session.token,
-    workDir: getSparkcoDir(),
-    localPort: config.client.port,
+    workDir,
+    localPort: customPort ?? config.client.port,
   });
 
   writeDaemonPid(process.pid);
-  output.success(`Daemon started (pid ${process.pid}). Press Ctrl+C to stop.`);
+  output.success(`Daemon started (role=${role}, pid ${process.pid}). Press Ctrl+C to stop.`);
 
   await daemon.start();
 

@@ -100,6 +100,14 @@ sparkco model key set <key>       # Update API key
 sparkco model test                # Verify both models respond
 ```
 
+### Server Management
+```bash
+sparkco server                    # Show server runtime status
+sparkco server status             # Same as above
+sparkco server logs               # View server daemon logs
+sparkco server tasks              # List scheduled tasks
+```
+
 ### Self-Improvement Engine
 ```bash
 sparkco improve                   # Show improvement dashboard

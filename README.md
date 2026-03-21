@@ -98,6 +98,7 @@ both client and server pi runtimes.
 | `sparkco deploy` | Deploy/redeploy server |
 | `sparkco secret set\|list\|delete` | Manage secrets |
 | `sparkco model show\|set\|list\|key\|test` | Manage LLM models |
+| `sparkco server status\|logs\|tasks` | Server runtime management |
 | `sparkco improve status\|issues\|fixes\|pause\|resume` | Self-improvement engine |
 | `sparkco destroy` | Tear down everything |
 
@@ -106,12 +107,15 @@ All commands support `--json` for machine-readable output (useful for pi).
 ## Architecture
 
 ```
-CLIENT (local)              SERVER (Cloudflare)
-+--------------+            +-------------------+
-| pi-agent     |<--- SSE -->| Worker + DO       |
-| daemon       |--- REST -->| KV / R2 / Queues  |
-| local HTTP   |            | Edge Functions     |
-+--------------+            +-------------------+
+CLIENT (local)              CLOUDFLARE            SERVER (VPS)
++--------------+     +------------------+     +--------------+
+| pi-agent     |     | Worker (relay)   |     | pi-agent     |
+| daemon       |<SSE>| ├─ auth         |<SSE>| daemon       |
+| read/write   | REST| ├─ SSE relay    | REST| read/write   |
+| npm/git      |---->| └─ KV/R2 proxy  |<----| npm/git      |
++--------------+     | Durable Object   |     | scheduler    |
+                     | └─ event log     |     +--------------+
+                     +------------------+
 ```
 
 The communication protocol has 5 message types:

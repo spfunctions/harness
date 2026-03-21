@@ -8,7 +8,10 @@ import { LocalServer } from "./local-server.js";
 import { ProcessManager, type ManagedProcess } from "./process-manager.js";
 import { GitOps } from "./git.js";
 
+export type DaemonRole = "client" | "server";
+
 export type DaemonConfig = {
+  role?: DaemonRole;
   serverUrl: string;
   token: string;
   workDir: string;
@@ -49,8 +52,9 @@ export class Daemon {
       },
     });
 
+    const role = config.role ?? "client";
     this.sseClient = new SSEClient({
-      url: `${config.serverUrl}/sse`,
+      url: `${config.serverUrl}/sse?role=${role}`,
       token: config.token,
       onMessage: (msg) => this.handleMessage(msg),
       onConnect: () => {
@@ -225,7 +229,7 @@ export class Daemon {
       }));
 
       const msg = createStateSync(
-        "client",
+        this.config.role ?? "client",
         this.currentVersion,
         processes,
         "ok",
