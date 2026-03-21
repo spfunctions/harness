@@ -1,0 +1,13 @@
+name = "sparkco-harness"
+main = "src/server/worker.ts"
+compatibility_date = "2024-09-25"
+compatibility_flags = ["nodejs_compat"]
+
+[durable_objects]
+bindings = [
+  { name = "HARNESS_DO", class_name = "HarnessDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["HarnessDO"]
