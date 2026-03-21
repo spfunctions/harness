@@ -466,3 +466,51 @@ describe("sparkco secret", () => {
     expect(out).toContain("Usage");
   });
 });
+
+describe("sparkco destroy token handling", () => {
+  it("no token warns but local cleanup proceeds", async () => {
+    const sparkcoDir = setupSparkcoDir();
+    const origToken = process.env.CLOUDFLARE_API_TOKEN;
+    delete process.env.CLOUDFLARE_API_TOKEN;
+    try {
+      const { destroyCommand } = await import(
+        "../../../src/cli/commands/destroy.js"
+      );
+      captureStdout();
+      await destroyCommand({ force: true });
+      const out = restoreStdout();
+      // Should warn about missing token
+      expect(out).toContain("No API token");
+      // But still complete local cleanup
+      expect(out).toContain("complete");
+      expect(fs.existsSync(sparkcoDir)).toBe(false);
+    } finally {
+      if (origToken) process.env.CLOUDFLARE_API_TOKEN = origToken;
+    }
+  });
+
+  it("reads apiToken from config.json", async () => {
+    const sparkcoDir = setupSparkcoDir();
+    // Add apiToken to the config
+    const configPath = path.join(sparkcoDir, "config.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    config.server.apiToken = "stored-cf-token";
+    fs.writeFileSync(configPath, JSON.stringify(config));
+
+    const origToken = process.env.CLOUDFLARE_API_TOKEN;
+    delete process.env.CLOUDFLARE_API_TOKEN;
+    try {
+      const { destroyCommand } = await import(
+        "../../../src/cli/commands/destroy.js"
+      );
+      captureStdout();
+      await destroyCommand({ force: true });
+      const out = restoreStdout();
+      // Should NOT warn about missing token (has config token)
+      expect(out).not.toContain("No API token");
+      expect(out).toContain("complete");
+    } finally {
+      if (origToken) process.env.CLOUDFLARE_API_TOKEN = origToken;
+    }
+  });
+});

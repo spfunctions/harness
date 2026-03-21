@@ -25,6 +25,7 @@ export class Daemon {
   private currentVersion = "v000";
   private syncInterval: ReturnType<typeof setInterval> | null = null;
   private inboxDir: string;
+  private logStream: fs.WriteStream | null = null;
 
   constructor(config: DaemonConfig) {
     this.config = config;
@@ -54,14 +55,44 @@ export class Daemon {
       onMessage: (msg) => this.handleMessage(msg),
       onConnect: () => {
         this.connected = true;
+        this.log("info", "SSE connected", { url: config.serverUrl });
       },
       onDisconnect: () => {
         this.connected = false;
+        this.log("warn", "SSE disconnected");
       },
     });
   }
 
+  private setupLogging(): void {
+    const logDir = path.join(this.config.workDir, "logs");
+    fs.mkdirSync(logDir, { recursive: true });
+    const logPath = path.join(logDir, "daemon.log");
+    this.logStream = fs.createWriteStream(logPath, { flags: "a" });
+  }
+
+  private log(
+    level: "info" | "warn" | "error",
+    msg: string,
+    data?: unknown,
+  ): void {
+    const entry = JSON.stringify({
+      ts: new Date().toISOString(),
+      level,
+      msg,
+      ...(data !== undefined ? { data } : {}),
+    });
+    if (this.logStream) {
+      this.logStream.write(entry + "\n");
+    }
+  }
+
   async start(): Promise<void> {
+    this.setupLogging();
+    this.log("info", "daemon starting", {
+      serverUrl: this.config.serverUrl,
+      workDir: this.config.workDir,
+    });
     await this.gitOps.init();
     await this.localServer.start();
     this.sseClient.connect();
@@ -70,9 +101,12 @@ export class Daemon {
     this.syncInterval = setInterval(() => {
       this.sendStateSync();
     }, 60000);
+
+    this.log("info", "daemon started");
   }
 
   async stop(): Promise<void> {
+    this.log("info", "daemon stopping");
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
@@ -80,6 +114,11 @@ export class Daemon {
     await this.processManager.stopAll();
     this.sseClient.disconnect();
     await this.localServer.stop();
+    this.log("info", "daemon stopped");
+    if (this.logStream) {
+      this.logStream.end();
+      this.logStream = null;
+    }
   }
 
   async sendToServer(message: Message): Promise<void> {
@@ -92,8 +131,13 @@ export class Daemon {
       body: encode(message),
     });
     if (!res.ok) {
+      this.log("error", "send failed", { status: res.status, type: message.type });
       throw new Error(`Server returned ${res.status}`);
     }
+    this.log("info", "message sent to server", {
+      type: message.type,
+      id: message.id,
+    });
   }
 
   getState(): {
@@ -131,25 +175,37 @@ export class Daemon {
   }
 
   private handleMessage(msg: Message): void {
+    this.log("info", "message received", {
+      type: msg.type,
+      id: msg.id,
+      from: msg.from,
+    });
+
     switch (msg.type) {
       case "capability-request":
         this.saveToInbox(msg);
+        this.log("info", "capability-request saved to inbox", { id: msg.id });
         break;
       case "data":
-        // Forward to local server routes if applicable
+        if ("channel" in msg) {
+          this.log("info", "data received", { channel: msg.channel });
+        }
         break;
       case "state-sync":
         this.currentVersion = msg.version;
+        this.log("info", "state-sync received", {
+          version: msg.version,
+          health: msg.health,
+        });
         break;
       case "capability-ready":
       case "negotiate":
-        // Log for pi to pick up
         break;
     }
   }
 
-  private handleLocalData(_channel: string, _payload: unknown): void {
-    // Received data from local route — can forward to server if needed
+  private handleLocalData(channel: string, _payload: unknown): void {
+    this.log("info", "data forwarded to route", { channel });
   }
 
   private saveToInbox(msg: Message): void {
@@ -168,19 +224,16 @@ export class Daemon {
         port: p.port,
       }));
 
-      const health = processes.some((p) => p.name)
-        ? "ok"
-        : "ok";
-
       const msg = createStateSync(
         "client",
         this.currentVersion,
         processes,
-        health,
+        "ok",
       );
       await this.sendToServer(msg);
+      this.log("info", "state-sync sent", { version: this.currentVersion });
     } catch {
-      // Silently fail — will retry next interval
+      this.log("error", "state-sync failed");
     }
   }
 }

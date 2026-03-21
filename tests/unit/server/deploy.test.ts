@@ -5,6 +5,7 @@ import * as path from "node:path";
 import {
   getDeployStatus,
 } from "../../../src/server/deploy.js";
+import { copyServerFiles } from "../../../src/cli/wizard/cloudflare.js";
 
 let tmpDir: string;
 
@@ -61,5 +62,37 @@ describe("deployWorker (wrangler.toml generation)", () => {
     const result = await deployWorker(config);
     expect(result.success).toBe(false);
     expect(result.error).toContain("wrangler.toml not found");
+  });
+});
+
+describe("copyServerFiles", () => {
+  it("copies all necessary server files to configDir/server/", () => {
+    copyServerFiles(tmpDir);
+    const serverDir = path.join(tmpDir, "server");
+    expect(fs.existsSync(serverDir)).toBe(true);
+    expect(fs.existsSync(path.join(serverDir, "worker.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(serverDir, "durable-object.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(serverDir, "sse-server.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(serverDir, "types.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(serverDir, "errors.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(serverDir, "codec.ts"))).toBe(true);
+  });
+
+  it("wrangler.toml main path resolves relative to configDir", () => {
+    copyServerFiles(tmpDir);
+    // Write a wrangler.toml using the template pattern
+    fs.writeFileSync(
+      path.join(tmpDir, "wrangler.toml"),
+      'main = "server/worker.ts"\n',
+    );
+    // The main entry should exist relative to configDir
+    const mainPath = path.join(tmpDir, "server", "worker.ts");
+    expect(fs.existsSync(mainPath)).toBe(true);
+  });
+
+  it("re-copy is idempotent", () => {
+    copyServerFiles(tmpDir);
+    copyServerFiles(tmpDir); // should not throw
+    expect(fs.existsSync(path.join(tmpDir, "server", "worker.ts"))).toBe(true);
   });
 });

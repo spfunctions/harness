@@ -23,11 +23,20 @@ const capabilityReadySchema = z.object({
   timestamp: z.number(),
 });
 
+export const channelSchema = z
+  .string()
+  .min(1, "channel must not be empty")
+  .max(128, "channel must not exceed 128 characters")
+  .regex(
+    /^[a-zA-Z0-9\-_\/]+$/,
+    "channel may only contain letters, digits, -, _, /",
+  );
+
 const dataMessageSchema = z.object({
   type: z.literal("data"),
   id: z.string().min(1),
   from: originSchema,
-  channel: z.string(),
+  channel: channelSchema,
   payload: z.unknown(),
   timestamp: z.number(),
 });

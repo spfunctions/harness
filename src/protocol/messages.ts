@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { HarnessError } from "../shared/errors.js";
 import type {
   Origin,
   CapabilityRequest,
@@ -47,11 +48,32 @@ export function createCapabilityReady(
   return msg;
 }
 
+const CHANNEL_RE = /^[a-zA-Z0-9\-_\/]+$/;
+
+export function validateChannel(channel: string): void {
+  if (!channel || channel.length === 0) {
+    throw new HarnessError("INVALID_MESSAGE", "channel must not be empty");
+  }
+  if (channel.length > 128) {
+    throw new HarnessError(
+      "INVALID_MESSAGE",
+      "channel must not exceed 128 characters",
+    );
+  }
+  if (!CHANNEL_RE.test(channel)) {
+    throw new HarnessError(
+      "INVALID_MESSAGE",
+      "channel may only contain letters, digits, -, _, /",
+    );
+  }
+}
+
 export function createDataMessage(
   from: Origin,
   channel: string,
   payload: unknown,
 ): DataMessage {
+  validateChannel(channel);
   return {
     type: "data",
     id: nanoid(),

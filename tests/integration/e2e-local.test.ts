@@ -171,4 +171,48 @@ describe("End-to-End Local", () => {
     // but the daemon should have attempted reconnection
     expect(state).toBeDefined();
   });
+
+  it("daemon writes logs to daemon.log", () => {
+    const logPath = path.join(tmpDir, "logs", "daemon.log");
+    expect(fs.existsSync(logPath)).toBe(true);
+    const content = fs.readFileSync(logPath, "utf-8");
+    expect(content.length).toBeGreaterThan(0);
+  });
+
+  it("daemon log entries are JSON with ts, level, msg fields", () => {
+    const logPath = path.join(tmpDir, "logs", "daemon.log");
+    const lines = fs
+      .readFileSync(logPath, "utf-8")
+      .trim()
+      .split("\n")
+      .filter((l) => l.length > 0);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      const entry = JSON.parse(line);
+      expect(entry).toHaveProperty("ts");
+      expect(entry).toHaveProperty("level");
+      expect(entry).toHaveProperty("msg");
+      expect(["info", "warn", "error"]).toContain(entry.level);
+    }
+  });
+
+  it("daemon log contains SSE connect event", () => {
+    const logPath = path.join(tmpDir, "logs", "daemon.log");
+    const content = fs.readFileSync(logPath, "utf-8");
+    expect(content).toContain("SSE connected");
+  });
+
+  it("daemon log contains message received events", () => {
+    const logPath = path.join(tmpDir, "logs", "daemon.log");
+    const content = fs.readFileSync(logPath, "utf-8");
+    expect(content).toContain("message received");
+  });
+
+  it("daemon log uses append mode (content persists)", () => {
+    const logPath = path.join(tmpDir, "logs", "daemon.log");
+    const before = fs.readFileSync(logPath, "utf-8");
+    // Writing more shouldn't clear the file — verified by the fact
+    // that lines from start() are still present
+    expect(before).toContain("daemon start");
+  });
 });

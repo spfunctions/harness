@@ -144,6 +144,7 @@ export async function initInteractive(): Promise<void> {
         workerUrl,
         accountId,
         kvNamespaceId,
+        apiToken,
       },
       client: { port: 3847, routes: [] },
       session: { token: sessionToken, createdAt: Date.now() },
@@ -201,7 +202,7 @@ export async function initInteractive(): Promise<void> {
         ["Server", `${workerUrl}`],
         ["Account", accountName],
         ["Worker", workerName],
-        ["Config", CONFIG_PATH],
+        ["Config", getSparkcoDir() + "/config.json"],
         ["Token", `${sessionToken.slice(0, 8)}...`],
       ],
     );
@@ -248,7 +249,7 @@ export async function initNonInteractive(): Promise<void> {
     const sessionToken = nanoid(32);
     const config: SparkcoConfig = {
       version: "1",
-      server: { workerName, workerUrl, accountId, kvNamespaceId },
+      server: { workerName, workerUrl, accountId, kvNamespaceId, apiToken },
       client: { port: 3847, routes: [] },
       session: { token: sessionToken, createdAt: Date.now() },
       pi: { skillInstalled: false, target: "both" },

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { HarnessError } from "../../../src/shared/errors.js";
 import {
   createCapabilityRequest,
   createCapabilityReady,
@@ -78,6 +79,17 @@ describe("createDataMessage", () => {
     expect(createDataMessage("client", "c", "hello").payload).toBe("hello");
     expect(createDataMessage("client", "c", 42).payload).toBe(42);
     expect(createDataMessage("client", "c", null).payload).toBeNull();
+  });
+
+  it("无效 channel 抛出 HarnessError INVALID_MESSAGE", () => {
+    expect(() => createDataMessage("client", "", {})).toThrow(HarnessError);
+    expect(() => createDataMessage("client", "a".repeat(200), {})).toThrow(HarnessError);
+    expect(() => createDataMessage("client", "has space", {})).toThrow(HarnessError);
+    try {
+      createDataMessage("client", "", {});
+    } catch (e) {
+      expect((e as HarnessError).code).toBe("INVALID_MESSAGE");
+    }
   });
 });
 

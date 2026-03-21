@@ -117,6 +117,61 @@ describe("decode", () => {
   });
 });
 
+describe("channel name 校验", () => {
+  it("有效 channel name 通过", () => {
+    const valid = [
+      "signals/test",
+      "my-channel",
+      "data_v2",
+      "a",
+      "A/B/c-d_e",
+    ];
+    for (const ch of valid) {
+      const msg = makeDataMessage({ channel: ch });
+      expect(() => decode(encode(msg))).not.toThrow();
+    }
+  });
+
+  it("空 channel name 被拒绝", () => {
+    const raw = JSON.stringify({
+      type: "data",
+      id: "test",
+      from: "client",
+      channel: "",
+      payload: {},
+      timestamp: 0,
+    });
+    expect(() => decode(raw)).toThrow(HarnessError);
+  });
+
+  it("超过 128 字符的 channel name 被拒绝", () => {
+    const raw = JSON.stringify({
+      type: "data",
+      id: "test",
+      from: "client",
+      channel: "a".repeat(129),
+      payload: {},
+      timestamp: 0,
+    });
+    expect(() => decode(raw)).toThrow(HarnessError);
+  });
+
+  it("包含特殊字符的 channel name 被拒绝", () => {
+    const invalid = ["has space", "中文", "emoji😀", "dot.name", "semi;colon"];
+    for (const ch of invalid) {
+      const raw = JSON.stringify({
+        type: "data",
+        id: "test",
+        from: "client",
+        channel: ch,
+        payload: {},
+        timestamp: 0,
+      });
+      expect(() => decode(raw)).toThrow(HarnessError);
+    }
+  });
+});
+
 describe("encode → decode 往返", () => {
   it("五种消息类型 encode 后 decode 得到相同结构", () => {
     const messages = [

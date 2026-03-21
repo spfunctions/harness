@@ -12,6 +12,7 @@ export type SparkcoConfig = {
     workerUrl: string;
     accountId: string;
     kvNamespaceId: string;
+    apiToken?: string;
   };
   client: {
     port: number;

@@ -29,13 +29,21 @@ export async function deployWorker(
     };
   }
 
+  // Ensure server files are present (re-copy on redeploy)
+  try {
+    const { copyServerFiles } = await import("../cli/wizard/cloudflare.js");
+    copyServerFiles(config.configDir);
+  } catch {
+    // May fail if cloudflare module not loadable — files should already exist from init
+  }
+
   try {
     const result = await execa(
       "wrangler",
       ["deploy", "--config", wranglerPath],
       {
         env: { CLOUDFLARE_API_TOKEN: config.apiToken },
-        cwd: path.resolve("."),
+        cwd: config.configDir,
       },
     );
 

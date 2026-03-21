@@ -61,7 +61,10 @@ export async function destroyCommand(options: {
   }
 
   // 2. Delete CF resources
-  const apiToken = process.env.CLOUDFLARE_API_TOKEN ?? "";
+  const apiToken =
+    process.env.CLOUDFLARE_API_TOKEN ||
+    config.server.apiToken ||
+    "";
   if (apiToken) {
     try {
       await destroyServerResources(
@@ -73,7 +76,7 @@ export async function destroyCommand(options: {
         workerName,
         config.server.kvNamespaceId,
       );
-      output.success("Cloudflare resources deleted.");
+      output.success("Cloudflare resources deleted (Worker + KV namespace).");
     } catch (err) {
       output.warn(
         `Failed to delete CF resources: ${err instanceof Error ? err.message : String(err)}`,
@@ -81,7 +84,8 @@ export async function destroyCommand(options: {
     }
   } else {
     output.warn(
-      "CLOUDFLARE_API_TOKEN not set — skipping CF resource cleanup.",
+      `No API token found. Set CLOUDFLARE_API_TOKEN env var or re-run 'sparkco init'. ` +
+        `Manually delete Worker '${workerName}' from the Cloudflare dashboard.`,
     );
   }
 

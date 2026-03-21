@@ -6,6 +6,7 @@ import {
   createCapabilityReady,
   createNegotiate,
   createDataMessage,
+  validateChannel,
 } from "../../protocol/messages.js";
 import type { Message } from "../../shared/types.js";
 
@@ -47,6 +48,14 @@ export async function sendCommand(
     case "data":
       if (!options.channel) {
         output.error("--channel is required for data messages");
+        return;
+      }
+      try {
+        validateChannel(options.channel);
+      } catch (e) {
+        output.error(
+          `Channel name invalid: ${e instanceof Error ? e.message : String(e)}`,
+        );
         return;
       }
       {
