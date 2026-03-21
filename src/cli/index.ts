@@ -13,6 +13,7 @@ import { secretCommand } from "./commands/secret.js";
 import { daemonCommand } from "./commands/daemon-cmd.js";
 import { destroyCommand } from "./commands/destroy.js";
 import { modelCommand } from "./commands/model.js";
+import { improveCommand } from "./commands/improve.js";
 
 const program = new Command()
   .name("sparkco")
@@ -119,6 +120,13 @@ program
   .description("Manage LLM models (show|set|list|key|test)")
   .action(async (action, target, value) => {
     await modelCommand(action, target, value);
+  });
+
+program
+  .command("improve [action] [arg1] [arg2]")
+  .description("Self-improvement engine (status|issues|fixes|pause|resume|config)")
+  .action(async (action, arg1, arg2) => {
+    await improveCommand(action, arg1, arg2);
   });
 
 program

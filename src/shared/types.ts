@@ -108,6 +108,88 @@ export type AgentConfig = {
   server: LLMConfig;
 };
 
+// === Self-Improvement (Phase 2) ===
+
+export type IssueType = "bug" | "edge-case" | "fuzz-crash" | "perf" | "code-quality";
+export type IssueSeverity = "critical" | "high" | "medium" | "low";
+export type IssueDiscoverer = "test-runner" | "fuzzer" | "stress-test" | "code-review";
+
+export interface Issue {
+  id: string;
+  type: IssueType;
+  severity: IssueSeverity;
+  title: string;
+  description: string;
+  reproduction: string;
+  affected_files?: string[];
+  discovered_by: IssueDiscoverer;
+  discovered_at: number;
+}
+
+export type FixStatus = "attempting" | "testing" | "passed" | "failed" | "abandoned";
+
+export interface Fix {
+  id: string;
+  issue_ref: string;
+  status: FixStatus;
+  diff_summary: string;
+  files_changed: string[];
+  test_result?: {
+    passed: number;
+    failed: number;
+    new_tests_added: number;
+  };
+  commit_hash?: string;
+  attempts: number;
+}
+
+export interface DashboardState {
+  cycle_count: number;
+  issues_found: number;
+  issues_fixed: number;
+  issues_abandoned: number;
+  current_issue?: Issue;
+  recent_fixes: Fix[];
+  recent_issues: Issue[];
+  llm_calls_today: number;
+  llm_tokens_today: number;
+  last_cycle_at: number;
+  health: "running" | "paused" | "cooldown" | "limit-reached";
+}
+
+export interface FuzzCase {
+  id: string;
+  strategy: string;
+  input: string;
+  expect: "reject" | "accept";
+  description: string;
+}
+
+export interface FuzzResult {
+  case_id: string;
+  actual: "rejected" | "accepted" | "crashed" | "timeout" | "unexpected";
+  response?: string;
+  is_bug: boolean;
+}
+
+export interface StressScenario {
+  id: string;
+  name: string;
+}
+
+export interface StressResult {
+  scenario_id: string;
+  passed: boolean;
+  metrics: {
+    messages_sent?: number;
+    messages_received?: number;
+    avg_latency_ms?: number;
+    max_latency_ms?: number;
+    errors?: string[];
+  };
+  is_regression: boolean;
+}
+
 // === 错误 ===
 
 export type HarnessErrorCode =

@@ -70,6 +70,55 @@ app.get("/pi-config", async (c) => {
   });
 });
 
+// Source sync routes
+app.put("/sources/:filepath{.*}", async (c) => {
+  const authErr = checkAuth(c.req.raw, c.env);
+  if (authErr) return authErr;
+  const filepath = c.req.param("filepath");
+  if (!c.env.HARNESS_KV) return c.json({ error: "KV not configured" }, 500);
+  const content = await c.req.text();
+  await c.env.HARNESS_KV.put(`source:${filepath}`, content);
+  return c.json({ ok: true });
+});
+
+app.get("/sources/:filepath{.*}", async (c) => {
+  const authErr = checkAuth(c.req.raw, c.env);
+  if (authErr) return authErr;
+  const filepath = c.req.param("filepath");
+  if (!c.env.HARNESS_KV) return c.json({ error: "KV not configured" }, 500);
+  const content = await c.env.HARNESS_KV.get(`source:${filepath}`);
+  if (!content) return c.text("Not found", 404);
+  return c.text(content);
+});
+
+app.get("/sources", async (c) => {
+  const authErr = checkAuth(c.req.raw, c.env);
+  if (authErr) return authErr;
+  if (!c.env.HARNESS_KV) return c.json({ error: "KV not configured" }, 500);
+  const list = await c.env.HARNESS_KV.list({ prefix: "source:" });
+  const files = list.keys.map((k) => k.name.replace("source:", ""));
+  return c.json({ files });
+});
+
+// Dashboard state
+app.get("/improve/dashboard", async (c) => {
+  const authErr = checkAuth(c.req.raw, c.env);
+  if (authErr) return authErr;
+  if (!c.env.HARNESS_KV) return c.json({ error: "KV not configured" }, 500);
+  const raw = await c.env.HARNESS_KV.get("improve:dashboard");
+  if (!raw) return c.json({ health: "paused", cycle_count: 0 });
+  return c.json(JSON.parse(raw));
+});
+
+app.put("/improve/dashboard", async (c) => {
+  const authErr = checkAuth(c.req.raw, c.env);
+  if (authErr) return authErr;
+  if (!c.env.HARNESS_KV) return c.json({ error: "KV not configured" }, 500);
+  const body = await c.req.text();
+  await c.env.HARNESS_KV.put("improve:dashboard", body);
+  return c.json({ ok: true });
+});
+
 app.get("/health", (c) => {
   return c.json({ status: "ok" });
 });

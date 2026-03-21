@@ -98,6 +98,7 @@ both client and server pi runtimes.
 | `sparkco deploy` | Deploy/redeploy server |
 | `sparkco secret set\|list\|delete` | Manage secrets |
 | `sparkco model show\|set\|list\|key\|test` | Manage LLM models |
+| `sparkco improve status\|issues\|fixes\|pause\|resume` | Self-improvement engine |
 | `sparkco destroy` | Tear down everything |
 
 All commands support `--json` for machine-readable output (useful for pi).
@@ -145,7 +146,7 @@ Config lives at `~/.sparkco/config.json`. See `sparkco status` for current value
 
 ```bash
 npm install
-npm test                    # all tests (181 tests)
+npm test                    # all tests
 npm run test:unit           # unit tests only
 npm run test:integration    # integration tests only
 npx tsx scripts/dev.ts      # local dev server + daemon

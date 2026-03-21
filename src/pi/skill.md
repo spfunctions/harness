@@ -100,6 +100,18 @@ sparkco model key set <key>       # Update API key
 sparkco model test                # Verify both models respond
 ```
 
+### Self-Improvement Engine
+```bash
+sparkco improve                   # Show improvement dashboard
+sparkco improve status            # Same as above
+sparkco improve issues            # List discovered issues
+sparkco improve issue <id>        # View issue details
+sparkco improve fixes             # List recent fixes
+sparkco improve pause             # Pause the engine
+sparkco improve resume            # Resume the engine
+sparkco improve config            # Show safety limits
+```
+
 ## Typical Workflows
 
 ### Setting up a new signal pipeline
