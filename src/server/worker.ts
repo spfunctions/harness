@@ -4,7 +4,9 @@ export { HarnessDO } from "./durable-object.js";
 
 type Env = {
   HARNESS_DO: DurableObjectNamespace;
+  HARNESS_KV?: KVNamespace;
   AUTH_TOKEN?: string;
+  PI_API_KEY?: string;
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -52,6 +54,20 @@ app.post("/deploy", async (c) => {
   if (authErr) return authErr;
   // Phase 0: stub
   return c.json({ status: "deploy not implemented in Phase 0" });
+});
+
+app.get("/pi-config", async (c) => {
+  const authErr = checkAuth(c.req.raw, c.env);
+  if (authErr) return authErr;
+  let piConfig = null;
+  if (c.env.HARNESS_KV) {
+    const raw = await c.env.HARNESS_KV.get("pi-config");
+    if (raw) piConfig = JSON.parse(raw);
+  }
+  return c.json({
+    ...(piConfig ?? {}),
+    apiKey: c.env.PI_API_KEY ?? null,
+  });
 });
 
 app.get("/health", (c) => {

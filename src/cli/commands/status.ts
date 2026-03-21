@@ -6,6 +6,7 @@ import {
 import * as output from "../output.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { readPiConfig } from "../../pi/config.js";
 
 export async function statusCommand(): Promise<void> {
   let config;
@@ -29,6 +30,12 @@ export async function statusCommand(): Promise<void> {
 
   const routeCount = config.client.routes.length;
 
+  // Agent config
+  const piConfig = readPiConfig(getSparkcoDir());
+  const agentStr = piConfig
+    ? `${piConfig.model} via ${piConfig.provider}`
+    : "not configured";
+
   const data = {
     daemon: pid ? "running" : "stopped",
     pid: pid ?? undefined,
@@ -37,6 +44,7 @@ export async function statusCommand(): Promise<void> {
     workerName: config.server.workerName,
     routes: routeCount,
     inbox: pendingCount,
+    agent: piConfig ? { model: piConfig.model, provider: piConfig.provider } : null,
   };
 
   output.print(data, () => {
@@ -48,6 +56,7 @@ export async function statusCommand(): Promise<void> {
       `  │  Daemon:     ${pid ? "● " + daemonStatus : "○ stopped"}`.padEnd(44) + "│",
       `  │  Server:     ${config.server.workerUrl}`.padEnd(44) + "│",
       `  │  Worker:     ${config.server.workerName}`.padEnd(44) + "│",
+      `  │  Agent:      ${piConfig ? "● " + agentStr : "○ " + agentStr}`.padEnd(44) + "│",
       `  │  Routes:     ${routeCount} active`.padEnd(44) + "│",
       `  │  Inbox:      ${pendingCount} pending`.padEnd(44) + "│",
       "  └─────────────────────────────────────────┘",

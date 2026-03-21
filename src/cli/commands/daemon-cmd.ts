@@ -1,6 +1,18 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execa } from "execa";
+
+function findTsx(): string {
+  // Resolve relative to this file's location
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+  const local = path.resolve(thisDir, "../../node_modules/.bin/tsx");
+  if (fs.existsSync(local)) return local;
+  // Try project root node_modules
+  const projectLocal = path.resolve("node_modules/.bin/tsx");
+  if (fs.existsSync(projectLocal)) return projectLocal;
+  return "tsx"; // fallback to global
+}
 import {
   loadConfig,
   getDaemonPid,
@@ -50,11 +62,10 @@ async function startDaemon(detached: boolean): Promise<void> {
 
   if (detached) {
     // Fork a background process
+    const tsxBin = findTsx();
     const child = execa(
-      "node",
+      tsxBin,
       [
-        "--import",
-        "tsx",
         path.resolve("src/cli/commands/daemon-cmd.ts"),
       ],
       {

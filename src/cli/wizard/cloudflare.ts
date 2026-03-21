@@ -54,6 +54,35 @@ export async function listAccounts(
   return data.result.map((a) => ({ id: a.id, name: a.name }));
 }
 
+export async function getOrCreateKVNamespace(
+  token: string,
+  accountId: string,
+  namespaceName: string,
+): Promise<string> {
+  // 1. List existing namespaces
+  const listData = (await cfFetch(
+    token,
+    `/accounts/${accountId}/storage/kv/namespaces`,
+  )) as { result: Array<{ id: string; title: string }> };
+
+  // 2. Check if one with this name already exists
+  const existing = listData.result.find((ns) => ns.title === namespaceName);
+  if (existing) {
+    return existing.id;
+  }
+
+  // 3. Create new namespace
+  const createData = (await cfFetch(
+    token,
+    `/accounts/${accountId}/storage/kv/namespaces`,
+    {
+      method: "POST",
+      body: JSON.stringify({ title: namespaceName }),
+    },
+  )) as { result: { id: string } };
+  return createData.result.id;
+}
+
 export async function deployServerResources(
   creds: CloudflareCredentials,
   workerName: string,
@@ -62,16 +91,12 @@ export async function deployServerResources(
   workerUrl: string;
   kvNamespaceId: string;
 }> {
-  // 1. Create KV namespace
-  const kvData = (await cfFetch(
+  // 1. Get or create KV namespace (idempotent)
+  const kvNamespaceId = await getOrCreateKVNamespace(
     creds.apiToken,
-    `/accounts/${creds.accountId}/storage/kv/namespaces`,
-    {
-      method: "POST",
-      body: JSON.stringify({ title: `${workerName}-kv` }),
-    },
-  )) as { result: { id: string } };
-  const kvNamespaceId = kvData.result.id;
+    creds.accountId,
+    `${workerName}-kv`,
+  );
 
   // 2. Generate wrangler.toml from template
   const templatePath = path.resolve("templates/wrangler-base.toml");

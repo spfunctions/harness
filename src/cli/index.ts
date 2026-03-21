@@ -12,6 +12,7 @@ import { deployCommand } from "./commands/deploy.js";
 import { secretCommand } from "./commands/secret.js";
 import { daemonCommand } from "./commands/daemon-cmd.js";
 import { destroyCommand } from "./commands/destroy.js";
+import { modelCommand } from "./commands/model.js";
 
 const program = new Command()
   .name("sparkco")
@@ -111,6 +112,13 @@ program
   .description("Manage secrets (set|get|list|delete)")
   .action(async (action, name, value) => {
     await secretCommand(action, name, value);
+  });
+
+program
+  .command("model [action] [target] [value]")
+  .description("Manage LLM models (show|set|list|key|test)")
+  .action(async (action, target, value) => {
+    await modelCommand(action, target, value);
   });
 
 program

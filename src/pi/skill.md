@@ -88,6 +88,18 @@ sparkco logs                      # List available logs
 sparkco logs <name> --tail        # Follow log output
 ```
 
+### Model Management
+```bash
+sparkco model                     # Show current model config
+sparkco model set client <model>  # Change client model
+sparkco model set server <model>  # Change server model
+sparkco model set both <model>    # Change both
+sparkco model list                # Available model presets
+sparkco model key                 # Show API key (masked)
+sparkco model key set <key>       # Update API key
+sparkco model test                # Verify both models respond
+```
+
 ## Typical Workflows
 
 ### Setting up a new signal pipeline

@@ -92,6 +92,22 @@ export type SSEEvent = {
   data: string;
 };
 
+// === LLM / Agent 配置 ===
+
+export type LLMProvider = "openrouter" | "anthropic" | "openai" | "custom";
+
+export type LLMConfig = {
+  provider: LLMProvider;
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+};
+
+export type AgentConfig = {
+  client: LLMConfig;
+  server: LLMConfig;
+};
+
 // === 错误 ===
 
 export type HarnessErrorCode =

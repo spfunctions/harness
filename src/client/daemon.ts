@@ -100,11 +100,33 @@ export class Daemon {
     connected: boolean;
     version: string;
     processes: ManagedProcess[];
+    agentConfigured: boolean;
+    agentModel?: string;
   } {
+    let agentConfigured = false;
+    let agentModel: string | undefined;
+    const piSettingsPath = path.join(
+      this.config.workDir,
+      "pi-client",
+      ".pi",
+      "agent",
+      "settings.json",
+    );
+    if (fs.existsSync(piSettingsPath)) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(piSettingsPath, "utf-8"));
+        agentConfigured = true;
+        agentModel = raw.model;
+      } catch {
+        // Invalid settings
+      }
+    }
     return {
       connected: this.connected,
       version: this.currentVersion,
       processes: this.processManager.list(),
+      agentConfigured,
+      agentModel,
     };
   }
 
