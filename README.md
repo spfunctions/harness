@@ -1,12 +1,17 @@
-# SparkCo Harness
+# @spfunctions/harness
 
-A dual pi-agent runtime harness. Client runs locally, server runs on
-Cloudflare. Both start as empty shells and self-modify based on tasks.
+> Dual pi-agent runtime harness. Two agents (local + Cloudflare) negotiate, share state, and self-modify via a 5-message protocol. Open source. $1–2/day to run.
+
+```bash
+npm i -g @spfunctions/harness
+```
+
+After install, the binary is `sparkco`.
 
 ## Quick Start
 
 ```bash
-npx tsx bin/sparkco.ts init
+sparkco init
 ```
 
 The setup wizard will:
@@ -160,7 +165,7 @@ npx tsx scripts/dev.ts      # local dev server + daemon
 
 ```bash
 sparkco destroy
-npm uninstall -g @sparkco/harness
+npm uninstall -g @spfunctions/harness
 ```
 
 ## License

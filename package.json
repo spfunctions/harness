@@ -1,22 +1,50 @@
 {
-  "name": "@sparkco/sparkco-agent",
+  "name": "@spfunctions/harness",
   "version": "0.1.0",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/cli/index.js",
   "bin": {
-    "sparkco": "./bin/sparkco.ts"
+    "sparkco": "dist/cli/bin.js"
   },
+  "files": [
+    "dist",
+    "templates",
+    "deploy",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/cli/bin.js",
+    "dev": "tsx bin/sparkco.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration"
+    "test:integration": "vitest run tests/integration",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "agent",
+    "ai",
+    "cli",
+    "harness",
+    "runtime",
+    "cloudflare",
+    "claude-code",
+    "pi",
+    "self-modifying",
+    "sparkco"
+  ],
+  "author": "Sparkco",
   "license": "Apache-2.0",
-  "description": "Dual Pi-Agent Runtime Harness",
+  "description": "Dual pi-agent runtime harness. Two agents (local + Cloudflare) negotiate, share state, and self-modify via a 5-message protocol.",
+  "homepage": "https://sparkco.ai/harness",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spfunctions/harness.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@hono/node-server": "^1.19.11",
     "chalk": "^5.3.0",

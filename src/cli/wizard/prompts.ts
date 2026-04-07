@@ -2,25 +2,27 @@ import Enquirer from "enquirer";
 
 const enquirer = new Enquirer();
 
+type PromptResponse<T> = { value: T };
+
 export async function askText(
   message: string,
   initial?: string,
 ): Promise<string> {
-  const response = await enquirer.prompt<{ value: string }>({
+  const response = (await enquirer.prompt({
     type: "input",
     name: "value",
     message,
     initial,
-  });
+  })) as PromptResponse<string>;
   return response.value;
 }
 
 export async function askPassword(message: string): Promise<string> {
-  const response = await enquirer.prompt<{ value: string }>({
+  const response = (await enquirer.prompt({
     type: "password",
     name: "value",
     message,
-  });
+  })) as PromptResponse<string>;
   return response.value;
 }
 
@@ -28,12 +30,12 @@ export async function askConfirm(
   message: string,
   initial?: boolean,
 ): Promise<boolean> {
-  const response = await enquirer.prompt<{ value: boolean }>({
+  const response = (await enquirer.prompt({
     type: "confirm",
     name: "value",
     message,
     initial: initial ?? true,
-  });
+  })) as PromptResponse<boolean>;
   return response.value;
 }
 
@@ -41,11 +43,11 @@ export async function askSelect(
   message: string,
   choices: Array<{ name: string; value: string }>,
 ): Promise<string> {
-  const response = await enquirer.prompt<{ value: string }>({
+  const response = (await enquirer.prompt({
     type: "select",
     name: "value",
     message,
     choices: choices.map((c) => ({ name: c.value, message: c.name })),
-  });
+  })) as PromptResponse<string>;
   return response.value;
 }

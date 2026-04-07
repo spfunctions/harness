@@ -63,10 +63,15 @@ export class CloudflareStorage {
   }
 
   async r2Put(key: string, data: string | Buffer): Promise<void> {
+    // undici / Node fetch DO accept Buffer at runtime; the lib.dom types just don't model it.
+    // Cast through unknown to bypass the strict BodyInit check.
+    const body = (
+      typeof data === "string" ? data : data
+    ) as unknown as BodyInit;
     const res = await fetch(`${this.baseUrl}/r2/${encodeURIComponent(key)}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${this.token}` },
-      body: data,
+      body,
     });
     if (!res.ok) throw new Error(`R2 put failed: ${res.status}`);
   }

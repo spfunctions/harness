@@ -43,18 +43,11 @@ export class SSEClient {
 
     this.es = new EventSource(url.toString(), {
       fetch: (input, init) => {
-        return fetch(input, {
-          ...init,
-          headers: {
-            ...Object.fromEntries(
-              (init?.headers as Headers)?.entries?.() ?? [],
-            ),
-            Authorization: `Bearer ${this.config.token}`,
-            ...(this.lastEventId
-              ? { "Last-Event-ID": this.lastEventId }
-              : {}),
-          },
-        });
+        // init.headers can be Headers, plain object, or string[][] — normalize via Headers ctor
+        const merged = new Headers((init?.headers as HeadersInit) ?? undefined);
+        merged.set("Authorization", `Bearer ${this.config.token}`);
+        if (this.lastEventId) merged.set("Last-Event-ID", this.lastEventId);
+        return fetch(input, { ...init, headers: merged });
       },
     });
 

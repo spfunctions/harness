@@ -62,13 +62,14 @@ export class LocalServer {
 
   async start(): Promise<{ port: number }> {
     return new Promise((resolve) => {
+      // serve() returns Http1 OR Http2 server union; we treat it as the base Server
       this.server = serve(
         { fetch: this.app.fetch, port: this.config.port },
         (info) => {
           this.actualPort = info.port;
           resolve({ port: info.port });
         },
-      );
+      ) as unknown as Server;
     });
   }
 
